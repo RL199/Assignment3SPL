@@ -1,0 +1,23 @@
+{
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "server compile",
+            "command": "mvn",
+            "args": ["compile"],
+            "options": {
+                "cwd": "${workspaceFolder}/server"
+            }
+        },
+        {
+            "type": "shell",
+            "label": "client compile",
+            "command": "mvn",
+            "args": ["compile"],
+            "options": {
+                "cwd": "${workspaceFolder}/client"
+            }
+        }
+    ],
+    "version": "2.0.0"
+}
