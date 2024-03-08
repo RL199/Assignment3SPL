@@ -9,6 +9,7 @@ it to implement the interface functions. Notice that given a Connections impleme
 should run. This means that you keep your implementation of Connections on T.
  */
 
+ //TODO: check if connectionId is needed to change to string username
 public class ConnectionsImpl<T> implements Connections<T>{
 
     //list of the new ConnectionHandler interface for each active client
@@ -32,5 +33,14 @@ public class ConnectionsImpl<T> implements Connections<T>{
     public void disconnect(int connectionId){
         //Removes an active client connectionId from the map
         connectionHandlers.remove(connectionId);
+    }
+
+    /* ------------------------------ Added methods ----------------------------- */
+
+    //broadcast the message to all active clients.
+    public void broadcast(T msg){
+        for(ConnectionHandler<T> handler : connectionHandlers.values()){
+            handler.send(msg);
+        }
     }
 }
