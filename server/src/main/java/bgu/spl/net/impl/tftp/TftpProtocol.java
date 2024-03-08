@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -58,7 +59,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         String fileName = "";
         try{
             //get the file name using UTF-8
-            fileName = new String(message, 2, message.length-3, "UTF-8");
+            fileName = new String(message, 2, message.length-3, StandardCharsets.UTF_8);
         }catch(Exception e){
             //error
         }
@@ -126,7 +127,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         String fileName = "";
         try{
             //get the file name using UTF-8
-            fileName = new String(message, 2, message.length-3, "UTF-8");
+            fileName = new String(message, 2, message.length-3, StandardCharsets.UTF_8);
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -254,7 +255,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         short code = conv2bToShort(errorCode);
         String errorMsg = "";
         try{
-            errorMsg = new String(message, 4, message.length-5, "UTF-8");
+            errorMsg = new String(message, 4, message.length-5, StandardCharsets.UTF_8);
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -337,7 +338,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         String userName = "";
         try{
             //get the user name using UTF-8
-            userName = new String(message, 2, message.length-3, "UTF-8");
+            userName = new String(message, 2, message.length-3, StandardCharsets.UTF_8);
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -370,7 +371,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         String fileName = "";
         try{
             //get the file name using UTF-8
-            fileName = new String(message, 2, message.length-3, "UTF-8");
+            fileName = new String(message, 2, message.length-3, StandardCharsets.UTF_8);
         }catch(Exception e){
             //error
         }
