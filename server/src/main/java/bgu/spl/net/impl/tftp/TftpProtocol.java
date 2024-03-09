@@ -64,7 +64,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             //error
         }
         //check if the file exists in Files directory
-        File file = new File("Files\\" + fileName);
+        File file = new File("Files/" + fileName);
         if(file.exists()){
             //send the file to the client
             try{
@@ -131,7 +131,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }catch(Exception e){
             e.printStackTrace();
         }
-        File file = new File("Files\\" + fileName);
+        File file = new File("Files/" + fileName);
         if(file.exists()){
             //send error 5
             try{
@@ -233,8 +233,10 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
         byte[] blockNum = {message[2], message[3]};
         System.out.println("ACK " + conv2bToShort(blockNum));
-        synchronized(this){
-            this.notify();
+        if(conv2bToShort(blockNum) != 0){
+            synchronized(this){
+                this.notify();
+            }
         }
     }
 
@@ -376,7 +378,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             //error
         }
         //check if the file exists in Files directory
-        File file = new File("Files\\" + fileName);
+        File file = new File("Files/" + fileName);
         if(file.exists()){
             file.delete();
             //broadcast file deleted
