@@ -20,6 +20,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         if(len+1 == bytes.length)
             bytes = Arrays.copyOf(bytes,2 * len);
 
+
         bytes[len++] = nextByte;
 
         if(len < 2) return null;
