@@ -88,6 +88,6 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         byte[] result = Arrays.copyOf(bytes, len);
         bytes = null;
         len = 0;
-        return bytes;
+        return result;
     }
 }
