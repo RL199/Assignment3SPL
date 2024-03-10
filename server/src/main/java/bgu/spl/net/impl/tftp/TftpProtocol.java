@@ -64,7 +64,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             //error
         }
         //check if the file exists in Files directory
-        File file = new File("Files/" + fileName);
+        File file = new File("server/Files/" + fileName);
         if(file.exists()){
             //send the file to the client
             try{
@@ -131,7 +131,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }catch(Exception e){
             e.printStackTrace();
         }
-        File file = new File("Files/" + fileName);
+        File file = new File("server/Files/" + fileName);
         if(file.exists()){
             //send error 5
             try{
@@ -146,7 +146,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         short blockNum = 0;
         isFileComplete = false;
         try{
-            fos = new FileOutputStream(fileName);
+            fos = new FileOutputStream("server/Files/" + fileName);
             while(!isFileComplete){
                 byte[] ack = new byte[4];
                 ack[0] = 0;
@@ -173,13 +173,13 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             e.printStackTrace();
         }
         //add the file to the Files directory
-        try{
-            Path source = Paths.get(fileName);
-            Path target = Paths.get("Files/" + fileName);
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
-        }catch(Exception e){
-            e.printStackTrace();
-        }
+        // try{
+        //     Path source = Paths.get(fileName);
+        //     Path target = Paths.get("Files/" + fileName);
+        //     Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        // }catch(Exception e){
+        //     e.printStackTrace();
+        // }
         //send broadcast that the file was added
         byte[] bcst = new byte[3 + fileName.getBytes().length + 1];
         bcst[0] = 0;
