@@ -9,4 +9,8 @@ public interface Connections<T> {
     boolean send(int connectionId, T msg);
 
     void disconnect(int connectionId);
+
+    /* ------------------------------ Added methods ----------------------------- */
+
+    void broadcast(T msg);
 }
