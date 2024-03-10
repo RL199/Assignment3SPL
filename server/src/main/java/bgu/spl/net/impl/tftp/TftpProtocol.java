@@ -357,7 +357,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
         holder.login_ids.put(connectionId, userName);
     }
-
+//TODO:if more than one error applies, select the lower error code.
     private void delrq(byte[] message){
         //delete request
         if(!holder.login_ids.containsKey(connectionId)){
@@ -432,11 +432,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
     private void disc(byte[] message){
         //logout request
-        //TODO: check if shouldTerminate is needed to be called
         //TODO: check how to wait for file transfer to end
         if(holder.login_ids.containsKey(connectionId)){
             holder.login_ids.remove(connectionId);
             this.connections.disconnect(connectionId);
+            shouldTerminate = true;
         }
         else{
             //send error 6
@@ -530,7 +530,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
     private short conv2bToShort(byte[] b){
     // converting 2 byte array to a short
-        short num = (short)(((short)b[0] << 8) | ((short)b[1] & 0x00ff));
+        short num = (short)(((short)(b[0] & 0xFF)) | ((short)(b[1] & 0x0FF)));
         return num;
     }
 }
