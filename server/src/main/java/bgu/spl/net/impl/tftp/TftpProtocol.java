@@ -191,6 +191,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             try{
                 FileInputStream fis = new FileInputStream(file);
                 rrqContent = new byte[(int)file.length()];
+                //TODO: synchronize?
                 fis.read(rrqContent);
                 fis.close();
                 indexRrq = 0;
@@ -266,6 +267,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             return;
         }
         try{
+            //TODO: synchronize?
             fos.write(message, 6, message.length-6);
             wrqComplete = message.length < 518;
             //send ack with the block number
@@ -314,7 +316,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
         System.out.println("Error " + code + " " + errorMsg);
     }
-//FIXME: dirq
+
     private void dirq(byte[] message){
         //directory listing request
         if(!holder.login_ids.containsKey(connectionId)){

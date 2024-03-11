@@ -39,6 +39,7 @@ public class ConnectionsImpl<T> implements Connections<T>{
 
     //broadcast the message to all active clients.
     public void broadcast(T msg){
+        //TODO: synchronize?
         for(ConnectionHandler<T> handler : connectionHandlers.values()){
             handler.send(msg);
         }
