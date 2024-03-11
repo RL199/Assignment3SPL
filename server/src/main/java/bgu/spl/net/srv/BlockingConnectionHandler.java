@@ -47,11 +47,9 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
                     protocol.process(nextMessage);
                 }
             }
-
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-
     }
 
     @Override
@@ -62,12 +60,20 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
 
     @Override
     public void send(T msg) {
-        //TODO: implement this
         try {
             out.write(encdec.encode(msg));
             out.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public BidiMessagingProtocol<T> getProtocol() {
+        return protocol;
+    }
+
+    public void start(int connectionId, Connections<T> connections) {
+        connections.connect(connectionId, this);
+        protocol.start(connectionId, connections);
     }
 }

@@ -200,7 +200,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             sendError((byte)5, "");
             return;
         }
-        //send ack
         try{
             //create the file
             fos = new FileOutputStream(wrqFileName);
@@ -211,7 +210,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             e.printStackTrace();
         }
     }
-
+//TODO: check where synchronized is needed.
     private void data(byte[] message){
         //data
         if(!holder.login_ids.containsKey(connectionId)){
@@ -220,8 +219,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             return;
         }
         try{
-            fos.write(message, 4, message.length-4);
-            wrqFileComplete = message.length < 516;
+            fos.write(message, 6, message.length-6);
+            wrqFileComplete = message.length < 518;
             //send ack with the block number
             short blockNum = conv2bToShort(new byte[]{message[4], message[5]});
             sendAck(blockNum);
@@ -231,6 +230,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         if(wrqFileComplete){
             //add the file to the Files directory
             try{
+                fos.close();
                 if(wrqFile.exists()){
                     //send error 5
                     sendError((byte)5, "");
@@ -278,7 +278,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
         System.out.println("Error " + code + " " + errorMsg);
     }
-
+//FIXME: dirq
     private void dirq(byte[] message){
         //directory listing request
         if(!holder.login_ids.containsKey(connectionId)){
@@ -286,7 +286,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             sendError((byte)6, "");
             return;
         }
-        File folder = new File("Files");
+        File folder = new File("server/Files/");
         File[] listOfFiles = folder.listFiles();
         //send the names of the files divided by 0 in the directory in DATA packets
         ArrayList<byte[]> fileNamesarrays = new ArrayList<>();
@@ -301,7 +301,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         //join all the file names data
         byte[] allFileNames = new byte[lengthCounter];
         int index = 0;
-        for(int i = 0; i < fileNamesarrays.size(); i++){
+        for(int i = 0; i < fileNamesarrays.size() && index < allFileNames.length; i++){
             for(int j = 0; j < fileNamesarrays.get(i).length; j++){
                 allFileNames[index++] = fileNamesarrays.get(i)[j];
                 if(j==fileNamesarrays.get(i).length-1){
@@ -414,10 +414,10 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         //logout request
         if(holder.login_ids.containsKey(connectionId)){
             holder.login_ids.remove(connectionId);
-            this.connections.disconnect(connectionId);
-            shouldTerminate = true;
             //send ack 0
             sendAck((short)0);
+            this.connections.disconnect(connectionId);
+            shouldTerminate = true;
         }
         else{
             //send error 6
@@ -501,7 +501,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
     private short conv2bToShort(byte[] b){
     // converting 2 byte array to a short
-        short num = (short)(((short)(b[0] & 0xFF)) | ((short)(b[1] & 0x0FF)));
+        short num = (short) ( (((short) (b[0] & 0xff)) << 8) | (short) (b[1]) & 0x00ff);
         return num;
     }
 }
