@@ -30,9 +30,27 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
     /* ------------------------------ Added Fields ------------------------------ */
 
-    private boolean isFileComplete = true;
+    private boolean wrqComplete = true;
 
-    FileOutputStream fos;
+    private boolean rrqComplete = true;
+
+    private boolean dirqComplete = true;
+
+    private FileOutputStream fos;
+
+    private byte[] dirqContent;
+
+    private byte[] rrqContent;
+
+    private int indexRrq;
+
+    private int indexDirq;
+
+    private File wrqFile;
+
+    private String wrqFileName;
+
+    /* ------------------------------ End of Added Fields ------------------------------ */
 
 
 
@@ -44,16 +62,119 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         this.shouldTerminate = false;
     }
 
+    /**
+     * sendDirqData
+     * send the next data packet to the client
+     * @param blockNum
+     */
+    private void sendDirqData(short blockNum){
+        byte[] data = new byte[(dirqContent.length-indexDirq >= 512) ? 518 : dirqContent.length-indexDirq + 6];
+        data[0] = 0;
+        data[1] = 3;
+        data[4] = convShortTo2b(blockNum)[0];
+        data[5] = convShortTo2b(blockNum)[1];
+        short counter = 0;
+        for(int i = 6; i < 518 && indexDirq < dirqContent.length; i++){
+            data[i] = dirqContent[indexDirq++];
+            counter++;
+        }
+        data[2] = convShortTo2b(counter)[0];
+        data[3] = convShortTo2b(counter)[1];
+        connections.send(connectionId, data);
+        dirqComplete = counter < 512;
+    }
+
+    /**
+     * sendRrqData
+     * send the next data packet to the client
+     * @param blockNum
+     */
+    private void sendRrqData(short blockNum){
+        byte[] data = new byte[(rrqContent.length-indexRrq >= 512) ? 518 : rrqContent.length-indexRrq + 6];
+        data[0] = 0;
+        data[1] = 3;
+        data[4] = convShortTo2b(blockNum)[0];
+        data[5] = convShortTo2b(blockNum)[1];
+        short counter = 0;
+        for(int i = 6; i < 518 && indexRrq < rrqContent.length; i++){
+            data[i] = rrqContent[indexRrq++];
+            counter++;
+        }
+        data[2] = convShortTo2b(counter)[0];
+        data[3] = convShortTo2b(counter)[1];
+        connections.send(connectionId, data);
+        rrqComplete = counter < 512;
+    }
+
+
+    /**
+     * sendBroadcast
+     * send broadcast message to all the clients
+     * @param fileName
+     * @param isAdded
+     */
+    private void sendBroadcast(byte[] fileName, boolean isAdded){
+        try{
+            byte[] brc = new byte[3 + fileName.length + 1];
+            brc[0] = 0;
+            brc[1] = 9;
+            brc[2] = (byte)(isAdded ? 1 : 0);
+            for(int i = 0; i < fileName.length; i++){
+                brc[i+3] = fileName[i];
+            }
+            brc[brc.length-1] = 0;
+            connections.broadcast(brc);
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * sendAck
+     * send ack message to the client
+     * @param blockNum
+     */
+    private void sendAck(short blockNum){
+        byte[] ack = new byte[4];
+        ack[0] = 0;
+        ack[1] = 4;
+        ack[2] = convShortTo2b(blockNum)[0];
+        ack[3] = convShortTo2b(blockNum)[1];
+        try{
+            connections.send(connectionId, ack);
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * sendError
+     * send error message to the client
+     * @param errornNum
+     * @param errorMsg
+     */
+    private void sendError(byte errornNum, String errorMsg){
+        byte[] error = new byte[4 + errorMsg.getBytes().length + 1];
+        error[0] = 0;
+        error[1] = 5;
+        error[2] = 0;
+        error[3] = errornNum;
+        for(int i = 0; i < errorMsg.getBytes().length; i++){
+            error[i+4] = errorMsg.getBytes()[i];
+        }
+        error[error.length-1] = 0;
+        try{
+            connections.send(connectionId, error);
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
     private void rrq(byte[] message){
         //read request
         if(!holder.login_ids.containsKey(connectionId)){
             //send error 6
-            try{
-                byte[] error = {0, 5, 0, 6, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendError((byte)6, "");
             return;
         }
         String fileName = "";
@@ -61,161 +182,26 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             //get the file name using UTF-8
             fileName = new String(message, 2, message.length-3, StandardCharsets.UTF_8);
         }catch(Exception e){
-            //error
+            e.printStackTrace();
         }
         //check if the file exists in Files directory
-        File file = new File("Files/" + fileName);
+        File file = new File("server/Files/" + fileName);
         if(file.exists()){
             //send the file to the client
             try{
-                FileInputStream fileInputStream = new FileInputStream(file);
-                byte[] fileContent = new byte[(int)file.length()];
-                fileInputStream.read(fileContent);
-                fileInputStream.close();
-                int blockNum = 1;
-                int index = 0;
-                while(index < fileContent.length){
-                    byte[] data = new byte[516];
-                    data[0] = 0;
-                    data[1] = 3;
-                    data[2] = convShortTo2b((short)blockNum)[0];
-                    data[3] = convShortTo2b((short)blockNum)[1];
-                    for(int i = 4; i < 516; i++){
-                        data[i] = fileContent[index++];
-                    }
-                    connections.send(connectionId, data);
-                    blockNum++;
-                    //wait for ack
-                    synchronized(this){
-                        try{
-                            this.wait();
-                        }catch(Exception e){
-                            e.printStackTrace();
-                        }
-                    }
-                }
+                FileInputStream fis = new FileInputStream(file);
+                rrqContent = new byte[(int)file.length()];
+                fis.read(rrqContent);
+                fis.close();
+                indexRrq = 0;
+                sendRrqData((short)1);
             }catch(IOException e){
                 e.printStackTrace();
             }
         }
         else{
             //send error 1
-            try{
-                byte[] error = {0, 5, 0, 1, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-        }
-
-
-    }
-
-    private void wrq(byte[] message){
-        //write request
-        if(!holder.login_ids.containsKey(connectionId)){
-            //send error 6
-            try{
-                byte[] error = {0, 5, 0, 6, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-            return;
-        }
-        //check if the file already exists in Files directory
-        String fileName = "";
-        try{
-            //get the file name using UTF-8
-            fileName = new String(message, 2, message.length-3, StandardCharsets.UTF_8);
-        }catch(Exception e){
-            e.printStackTrace();
-        }
-        File file = new File("Files/" + fileName);
-        if(file.exists()){
-            //send error 5
-            try{
-                byte[] error = {0, 5, 0, 5, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-            return;
-        }
-        //send ack
-        short blockNum = 0;
-        isFileComplete = false;
-        try{
-            fos = new FileOutputStream(fileName);
-            while(!isFileComplete){
-                byte[] ack = new byte[4];
-                ack[0] = 0;
-                ack[1] = 4;
-                ack[2] = convShortTo2b(blockNum)[0];
-                ack[3] = convShortTo2b(blockNum)[1];
-                try{
-                    connections.send(connectionId, ack);
-                }catch(Exception e){
-                    e.printStackTrace();
-                }
-                //wait for data
-                synchronized(this){
-                    try{
-                        this.wait();
-                    }catch(Exception e){
-                        e.printStackTrace();
-                    }
-                }
-                blockNum++;
-            }
-            fos.close();
-        }catch(Exception e){
-            e.printStackTrace();
-        }
-        //add the file to the Files directory
-        try{
-            Path source = Paths.get(fileName);
-            Path target = Paths.get("Files/" + fileName);
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
-        }catch(Exception e){
-            e.printStackTrace();
-        }
-        //send broadcast that the file was added
-        byte[] bcst = new byte[3 + fileName.getBytes().length + 1];
-        bcst[0] = 0;
-        bcst[1] = 9;
-        bcst[2] = 1;
-        for(int i = 0; i < fileName.getBytes().length; i++){
-            bcst[i+3] = fileName.getBytes()[i];
-        }
-        bcst[bcst.length-1] = 0;
-        try{
-            connections.broadcast(bcst);
-        }catch(Exception e){
-            e.printStackTrace();
-        }
-    }
-
-    private void data(byte[] message){
-        //data
-        if(!holder.login_ids.containsKey(connectionId)){
-            //send error 6
-            try{
-                byte[] error = {0, 5, 0, 6, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-            return;
-        }
-        try{
-            fos.write(message, 4, message.length-4);
-        }catch(Exception e){
-            e.printStackTrace();
-        }
-        isFileComplete = message.length < 516;
-        synchronized(this){
-            this.notify();
+            sendError((byte)1, "");
         }
     }
 
@@ -223,32 +209,97 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         //ack
         if(!holder.login_ids.containsKey(connectionId)){
             //send error 6
+            sendError((byte)6, "");
+            return;
+        }
+        //send the next data packet if the file is not complete
+        short blockNum = conv2bToShort(new byte[]{message[2], message[3]});
+        System.out.println("ACK " + blockNum);
+        if(blockNum > 0 && !rrqComplete){
+            blockNum++;
+            sendRrqData(blockNum);
+        }
+        else if(blockNum > 0 && !dirqComplete){
+            blockNum++;
+            sendDirqData(blockNum);
+        }
+    }
+
+    private void wrq(byte[] message){
+        //write request
+        if(!holder.login_ids.containsKey(connectionId)){
+            //send error 6
+            sendError((byte)6, "");
+            return;
+        }
+        //check if the file already exists in Files directory
+        wrqFileName = "";
+        try{
+            //get the file name using UTF-8
+            wrqFileName = new String(message, 2, message.length-3, StandardCharsets.UTF_8);
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        wrqFile = new File("server/Files/" + wrqFileName);
+        if(wrqFile.exists()){
+            //send error 5
+            sendError((byte)5, "");
+            return;
+        }
+        try{
+            //create the file
+            fos = new FileOutputStream(wrqFileName);
+            wrqComplete = false;
+            //send ack 0
+            sendAck((short)0);
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
+//TODO: check where synchronized is needed.
+    private void data(byte[] message){
+        //data
+        if(!holder.login_ids.containsKey(connectionId)){
+            //send error 6
+            sendError((byte)6, "");
+            return;
+        }
+        try{
+            fos.write(message, 6, message.length-6);
+            wrqComplete = message.length < 518;
+            //send ack with the block number
+            short blockNum = conv2bToShort(new byte[]{message[4], message[5]});
+            sendAck(blockNum);
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        if(wrqComplete){
+            //add the file to the Files directory
             try{
-                byte[] error = {0, 5, 0, 6, 0};
-                connections.send(connectionId, error);
+                fos.close();
+                if(wrqFile.exists()){
+                    //send error 5
+                    sendError((byte)5, "");
+                    return;
+                }
+                //move the file to the Files directory
+                Path source = Paths.get(wrqFileName);
+                Path target = Paths.get("server/Files/" + wrqFileName);
+                Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
             }catch(Exception e){
                 e.printStackTrace();
             }
-            return;
-        }
-        byte[] blockNum = {message[2], message[3]};
-        System.out.println("ACK " + conv2bToShort(blockNum));
-        if(conv2bToShort(blockNum) != 0){
-            synchronized(this){
-                this.notify();
-            }
+            // send broadcast that the file was added
+            sendBroadcast(wrqFileName.getBytes(), true);
         }
     }
+
 
     private void error(byte[] message){
         if(!holder.login_ids.containsKey(connectionId)){
             //send error 6
-            try{
-                byte[] error = {0, 5, 0, 6, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendError((byte)6, "");
             return;
         }
         //error
@@ -263,20 +314,15 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
         System.out.println("Error " + code + " " + errorMsg);
     }
-
+//FIXME: dirq
     private void dirq(byte[] message){
         //directory listing request
         if(!holder.login_ids.containsKey(connectionId)){
             //send error 6
-            try{
-                byte[] error = {0, 5, 0, 6, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendError((byte)6, "");
             return;
         }
-        File folder = new File("Files");
+        File folder = new File("server/Files/");
         File[] listOfFiles = folder.listFiles();
         //send the names of the files divided by 0 in the directory in DATA packets
         ArrayList<byte[]> fileNamesarrays = new ArrayList<>();
@@ -285,43 +331,23 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             if (listOfFiles[i].isFile()) {
                 byte[] fileName = listOfFiles[i].getName().getBytes();
                 fileNamesarrays.add(fileName);
-                lengthCounter += fileName.length;
+                lengthCounter += fileName.length + 1;
             }
         }
         //join all the file names data
-        byte[] allFileNames = new byte[lengthCounter];
+        dirqContent = new byte[lengthCounter];
         int index = 0;
-        for(int i = 0; i < fileNamesarrays.size(); i++){
+        for(int i = 0; i < fileNamesarrays.size() && index < dirqContent.length; i++){
             for(int j = 0; j < fileNamesarrays.get(i).length; j++){
-                allFileNames[index++] = fileNamesarrays.get(i)[j];
+                dirqContent[index++] = fileNamesarrays.get(i)[j];
                 if(j==fileNamesarrays.get(i).length-1){
-                    allFileNames[index++] = 0;
+                    dirqContent[index++] = 0;
                 }
             }
         }
-        //send the file names data in 512 bytes packets
-        int blockNum = 1;
-        index = 0;
-        while(index < allFileNames.length){
-            byte[] data = new byte[516];
-            data[0] = 0;
-            data[1] = 3;
-            data[2] = convShortTo2b((short)blockNum)[0];
-            data[3] = convShortTo2b((short)blockNum)[1];
-            for(int i = 4; i < 516; i++){
-                data[i] = allFileNames[index++];
-            }
-            connections.send(connectionId, data);
-            blockNum++;
-            //wait for ack
-            synchronized(this){
-                try{
-                    this.wait();
-                }catch(Exception e){
-                    e.printStackTrace();
-                }
-            }
-        }
+        //send the file names data
+        indexDirq = 0;
+        sendDirqData((short)1);
     }
 
     private void logrq(byte[] message){
@@ -329,12 +355,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         //check if the user is already logged in
         if(holder.login_ids.containsKey(connectionId)){
             //send error 7
-            try{
-                byte[] error = {0, 5, 0, 7, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendError((byte)7, "");
             return;
         }
         String userName = "";
@@ -347,27 +368,20 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         //check if the user name is already logged in
         if(holder.login_ids.containsValue(userName)){
             //send error 7
-            try{
-                byte[] error = {0, 5, 0, 7, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendError((byte)7, "");
             return;
         }
         holder.login_ids.put(connectionId, userName);
+        //send ack 0
+        sendAck((short)0);
     }
 
+//TODO:if more than one error applies, select the lower error code.
     private void delrq(byte[] message){
         //delete request
         if(!holder.login_ids.containsKey(connectionId)){
             //send error 6
-            try{
-                byte[] error = {0, 5, 0, 6, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendError((byte)6, "");
             return;
         }
         String fileName = "";
@@ -378,74 +392,38 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             //error
         }
         //check if the file exists in Files directory
-        File file = new File("Files/" + fileName);
+        File file = new File("server/Files/" + fileName);
         if(file.exists()){
             file.delete();
+            //send ack 0
+            sendAck((short)0);
             //broadcast file deleted
-            //add the file name bytes to the broadcast message and 0 byte
-            byte[] fileNameBytes = fileName.getBytes();
-            byte[] bcst = new byte[3 + fileNameBytes.length + 1];
-            bcst[0] = 0;
-            bcst[1] = 9;
-            bcst[2] = 0;
-            for(int i = 0; i < fileNameBytes.length; i++){
-                bcst[i+3] = fileNameBytes[i];
-            }
-            bcst[bcst.length-1] = 0;
-            try{
-                connections.broadcast(bcst);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendBroadcast(fileName.getBytes(), false);
         }
         else{
             //send error 1
-            try{
-                byte[] error = {0, 5, 0, 1, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendError((byte)1, "");
         }
     }
 
     private void bcst(byte[] message){
         //broadcast file deleted or added. the server not suppose to get this opcode
-        if(!holder.login_ids.containsKey(connectionId)){
-            //send error 6
-            try{
-                byte[] error = {0, 5, 0, 6, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-            return;
-        }
         //send error 4
-        try{
-            byte[] error = {0, 5, 0, 4, 0};
-            connections.send(connectionId, error);
-        }catch(Exception e){
-            e.printStackTrace();
-        }
+        sendError((byte)4, "");
     }
 
     private void disc(byte[] message){
         //logout request
-        //TODO: check if shouldTerminate is needed to be called
-        //TODO: check how to wait for file transfer to end
         if(holder.login_ids.containsKey(connectionId)){
             holder.login_ids.remove(connectionId);
+            //send ack 0
+            sendAck((short)0);
             this.connections.disconnect(connectionId);
+            shouldTerminate = true;
         }
         else{
             //send error 6
-            try{
-                byte[] error = {0, 5, 0, 6, 0};
-                connections.send(connectionId, error);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendError((byte)6, "");
         }
     }
 
@@ -498,12 +476,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                     break;
                 default:
                     //invalid, send error 4
-                    try{
-                        byte[] error = {0, 5, 0, 4, 0};
-                        connections.send(connectionId, error);
-                    }catch(Exception e){
-                        e.printStackTrace();
-                    }
+                    sendError((byte)4, "");
                     break;
             }
         }
@@ -530,7 +503,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
     private short conv2bToShort(byte[] b){
     // converting 2 byte array to a short
-        short num = (short)(((short)b[0] << 8) | ((short)b[1] & 0x00ff));
+        short num = (short) ( (((short) (b[0] & 0xff)) << 8) | (short) (b[1]) & 0x00ff);
         return num;
     }
 }
