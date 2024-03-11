@@ -30,17 +30,21 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
     /* ------------------------------ Added Fields ------------------------------ */
 
-    private boolean wrqFileComplete = true;
+    private boolean wrqComplete = true;
 
-    private boolean rrqFileComplete = true;
+    private boolean rrqComplete = true;
+
+    private boolean dirqComplete = true;
 
     private FileOutputStream fos;
 
-    private FileInputStream fis;
+    private byte[] dirqContent;
 
-    private byte[] rrqFileContent;
+    private byte[] rrqContent;
 
-    private int indexRrqFile;
+    private int indexRrq;
+
+    private int indexDirq;
 
     private File wrqFile;
 
@@ -59,29 +63,67 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     }
 
     /**
-     * sendRrqData
+     * sendDirqData
      * send the next data packet to the client
+     * @param blockNum
      */
-    private void sendRrqData(short blockNum){
-        byte[] data = new byte[(rrqFileContent.length-indexRrqFile >= 512) ? 518 : rrqFileContent.length-indexRrqFile + 6];
+    private void sendDirqData(short blockNum){
+        byte[] data = new byte[(dirqContent.length-indexDirq >= 512) ? 518 : dirqContent.length-indexDirq + 6];
         data[0] = 0;
         data[1] = 3;
         data[4] = convShortTo2b(blockNum)[0];
         data[5] = convShortTo2b(blockNum)[1];
         short counter = 0;
-        for(int i = 6; i < 518 && indexRrqFile < rrqFileContent.length; i++){
-            data[i] = rrqFileContent[indexRrqFile++];
+        for(int i = 6; i < 518 && indexDirq < dirqContent.length; i++){
+            data[i] = dirqContent[indexDirq++];
             counter++;
         }
         data[2] = convShortTo2b(counter)[0];
         data[3] = convShortTo2b(counter)[1];
         connections.send(connectionId, data);
-        rrqFileComplete = counter < 512;
+        dirqComplete = counter < 512;
+    }
+
+    /**
+     * sendRrqData
+     * send the next data packet to the client
+     * @param blockNum
+     */
+    private void sendRrqData(short blockNum){
+        byte[] data = new byte[(rrqContent.length-indexRrq >= 512) ? 518 : rrqContent.length-indexRrq + 6];
+        data[0] = 0;
+        data[1] = 3;
+        data[4] = convShortTo2b(blockNum)[0];
+        data[5] = convShortTo2b(blockNum)[1];
+        short counter = 0;
+        for(int i = 6; i < 518 && indexRrq < rrqContent.length; i++){
+            data[i] = rrqContent[indexRrq++];
+            counter++;
+        }
+        data[2] = convShortTo2b(counter)[0];
+        data[3] = convShortTo2b(counter)[1];
+        connections.send(connectionId, data);
+        rrqComplete = counter < 512;
+    }
+
+
+    /**
+     * sendBroadcast
+     * send broadcast message to all the clients
+     * @param fileName
+     * @param isAdded
+     */
+    private void sendBroadcast(byte[] fileName, boolean isAdded){
         try{
-            if(rrqFileComplete){
-                fis.close();
-                fis = null;
+            byte[] brc = new byte[3 + fileName.length + 1];
+            brc[0] = 0;
+            brc[1] = 9;
+            brc[2] = (byte)(isAdded ? 1 : 0);
+            for(int i = 0; i < fileName.length; i++){
+                brc[i+3] = fileName[i];
             }
+            brc[brc.length-1] = 0;
+            connections.broadcast(brc);
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -147,11 +189,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         if(file.exists()){
             //send the file to the client
             try{
-                fis = new FileInputStream(file);
-                rrqFileContent = new byte[(int)file.length()];
-                fis.read(rrqFileContent);
+                FileInputStream fis = new FileInputStream(file);
+                rrqContent = new byte[(int)file.length()];
+                fis.read(rrqContent);
                 fis.close();
-                indexRrqFile = 0;
+                indexRrq = 0;
                 sendRrqData((short)1);
             }catch(IOException e){
                 e.printStackTrace();
@@ -173,9 +215,13 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         //send the next data packet if the file is not complete
         short blockNum = conv2bToShort(new byte[]{message[2], message[3]});
         System.out.println("ACK " + blockNum);
-        if(blockNum > 0 && !rrqFileComplete){
+        if(blockNum > 0 && !rrqComplete){
             blockNum++;
             sendRrqData(blockNum);
+        }
+        else if(blockNum > 0 && !dirqComplete){
+            blockNum++;
+            sendDirqData(blockNum);
         }
     }
 
@@ -203,13 +249,14 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         try{
             //create the file
             fos = new FileOutputStream(wrqFileName);
-            wrqFileComplete = false;
+            wrqComplete = false;
             //send ack 0
             sendAck((short)0);
         }catch(Exception e){
             e.printStackTrace();
         }
     }
+
 //TODO: check where synchronized is needed.
     private void data(byte[] message){
         //data
@@ -220,14 +267,14 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
         try{
             fos.write(message, 6, message.length-6);
-            wrqFileComplete = message.length < 518;
+            wrqComplete = message.length < 518;
             //send ack with the block number
             short blockNum = conv2bToShort(new byte[]{message[4], message[5]});
             sendAck(blockNum);
         }catch(Exception e){
             e.printStackTrace();
         }
-        if(wrqFileComplete){
+        if(wrqComplete){
             //add the file to the Files directory
             try{
                 fos.close();
@@ -236,6 +283,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                     sendError((byte)5, "");
                     return;
                 }
+                //move the file to the Files directory
                 Path source = Paths.get(wrqFileName);
                 Path target = Paths.get("server/Files/" + wrqFileName);
                 Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
@@ -243,19 +291,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                 e.printStackTrace();
             }
             // send broadcast that the file was added
-            byte[] bcst = new byte[3 + wrqFileName.getBytes().length + 1];
-            bcst[0] = 0;
-            bcst[1] = 9;
-            bcst[2] = 1;
-            for(int i = 0; i < wrqFileName.getBytes().length; i++){
-                bcst[i+3] = wrqFileName.getBytes()[i];
-            }
-            bcst[bcst.length-1] = 0;
-            try{
-                connections.broadcast(bcst);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendBroadcast(wrqFileName.getBytes(), true);
         }
     }
 
@@ -295,43 +331,23 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             if (listOfFiles[i].isFile()) {
                 byte[] fileName = listOfFiles[i].getName().getBytes();
                 fileNamesarrays.add(fileName);
-                lengthCounter += fileName.length;
+                lengthCounter += fileName.length + 1;
             }
         }
         //join all the file names data
-        byte[] allFileNames = new byte[lengthCounter];
+        dirqContent = new byte[lengthCounter];
         int index = 0;
-        for(int i = 0; i < fileNamesarrays.size() && index < allFileNames.length; i++){
+        for(int i = 0; i < fileNamesarrays.size() && index < dirqContent.length; i++){
             for(int j = 0; j < fileNamesarrays.get(i).length; j++){
-                allFileNames[index++] = fileNamesarrays.get(i)[j];
+                dirqContent[index++] = fileNamesarrays.get(i)[j];
                 if(j==fileNamesarrays.get(i).length-1){
-                    allFileNames[index++] = 0;
+                    dirqContent[index++] = 0;
                 }
             }
         }
-        //send the file names data in 512 bytes packets
-        int blockNum = 1;
-        index = 0;
-        while(index < allFileNames.length){
-            byte[] data = new byte[516];
-            data[0] = 0;
-            data[1] = 3;
-            data[2] = convShortTo2b((short)blockNum)[0];
-            data[3] = convShortTo2b((short)blockNum)[1];
-            for(int i = 4; i < 516; i++){
-                data[i] = allFileNames[index++];
-            }
-            connections.send(connectionId, data);
-            blockNum++;
-            //wait for ack
-            synchronized(this){
-                try{
-                    this.wait();
-                }catch(Exception e){
-                    e.printStackTrace();
-                }
-            }
-        }
+        //send the file names data
+        indexDirq = 0;
+        sendDirqData((short)1);
     }
 
     private void logrq(byte[] message){
@@ -376,27 +392,13 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             //error
         }
         //check if the file exists in Files directory
-        File file = new File("Files/" + fileName);
+        File file = new File("server/Files/" + fileName);
         if(file.exists()){
             file.delete();
             //send ack 0
             sendAck((short)0);
             //broadcast file deleted
-            //add the file name bytes to the broadcast message and 0 byte
-            byte[] fileNameBytes = fileName.getBytes();
-            byte[] bcst = new byte[3 + fileNameBytes.length + 1];
-            bcst[0] = 0;
-            bcst[1] = 9;
-            bcst[2] = 0;
-            for(int i = 0; i < fileNameBytes.length; i++){
-                bcst[i+3] = fileNameBytes[i];
-            }
-            bcst[bcst.length-1] = 0;
-            try{
-                connections.broadcast(bcst);
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+            sendBroadcast(fileName.getBytes(), false);
         }
         else{
             //send error 1
