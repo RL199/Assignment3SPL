@@ -27,8 +27,10 @@ public class TftpServer extends BaseServer<byte[]> {
     }
 
     public static void main(String[] args) {
+        String arg = (args.length > 0) ? args[0] : "7777";
+        int port = Integer.decode(arg).intValue();
         TftpServer server = new TftpServer(
-                7777,
+                port,
                 TftpProtocol::new,
                 TftpEncoderDecoder::new
         );
