@@ -1,6 +1,8 @@
 package bgu.spl.net.impl.tftp;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
+
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 
@@ -34,6 +36,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
             case 2: //WRQ
             case 7: //LOGRQ
             case 8: //DELRQ
+
                 if(nextByte == 0)  //End of command
                     return msg();
                 break;
@@ -53,7 +56,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
             case 10: //DISC
                 return msg();
             default: //NOT DEFINED COMMAND
-                System.out.println("Not Defined Command: " + op);
+                System.out.println("Not Defined Command: " + new String(short_to_byte_array((short) op), StandardCharsets.UTF_8));
                 break;
 
         }
@@ -82,7 +85,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         return new byte []{(byte) (a >> 8), (byte)(a & 0xff) };
     }
 
-    private short byte_array_to_short(byte[] b) {
+    public short byte_array_to_short(byte[] b) {
         return (short) ( (((short) (b[0] & 0xff)) << 8) | (short) (b[1]) & 0x00ff);
 //        return (short) (((short) bytes [0]) << 8 | ( short ) (bytes [1]));
     }
