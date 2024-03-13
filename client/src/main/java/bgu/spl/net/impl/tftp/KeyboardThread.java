@@ -19,10 +19,20 @@ public class KeyboardThread extends Thread {
     private BufferedOutputStream out;
     private File rrqFile;
     private File wrqFile;
-    public KeyboardThread(BufferedOutputStream out, TftpEncoderDecoder encdec) {
+    private int error = -1;
+    private boolean terminate;
+    private final TftpClient client;
+
+    public void setError(int error) {
+        this.error = error;
+    }
+
+    public KeyboardThread(TftpClient client, BufferedOutputStream out) {
+        this.client = client;
         this.out = out;
-        this.encdec = encdec;
+        this.encdec = client.encdec;
         this.in = new Scanner(System.in);
+        terminate = false;
     }
 
     public void processLine(String line) {
@@ -106,7 +116,6 @@ public class KeyboardThread extends Thread {
         this.wrqFile = null;
     }
 
-
     private void command_rrq(String filename) {
         try {
             File file = new File(filename);
@@ -154,6 +163,19 @@ public class KeyboardThread extends Thread {
 
     private void command_disc() {
         send(new byte[]{0,10});
+        synchronized (this) {
+            try {
+                this.wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        if(error == 1 || error == 0) {
+            //TODO: check if there's an error what to do
+            client.disconnect();
+        }
+
+        error = -1;
     }
 
     @Override
@@ -166,7 +188,7 @@ public class KeyboardThread extends Thread {
     }
 
     private boolean shouldTerminate() {
-        return false;
+        return client.shouldTerminate();
     }
 
     public void send(byte[] message) {
