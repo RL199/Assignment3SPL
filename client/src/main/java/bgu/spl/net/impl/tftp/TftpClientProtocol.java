@@ -1,11 +1,12 @@
 package bgu.spl.net.impl.tftp;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
 public class TftpClientProtocol {
     private final KeyboardThread keyboardThread;
@@ -39,7 +40,8 @@ public class TftpClientProtocol {
 
     private void notifyKeyboardThread(boolean error) {
         synchronized (keyboardThread) {
-            keyboardThread.notify();
+            System.out.println("released");
+            keyboardThread.notifyAll();
             if(error)
                 keyboardThread.setError(1);
             else
@@ -51,10 +53,13 @@ public class TftpClientProtocol {
     private void receiveACK(byte[] content) {
         short block_number = conv2bToShort(content);
         System.out.println("ACK " + block_number);
+        keyboardThread.setACKBlockNumber(block_number);
         notifyKeyboardThread(false);
     }
 
     private final int MAX_DATA_SECTION_SIZE = 512;
+    private ByteArrayOutputStream dirqStream = new ByteArrayOutputStream();
+    private int count_dirq_bytes = 0;
     private void data(byte[] content) {
         /*
         When received a DATA packet - save the data to a file or a buffer depending on if we are in RRQ Command or DIRQ Command and send an ACK packet in return with the corresponding block number written in the DATA packet.
@@ -83,11 +88,46 @@ public class TftpClientProtocol {
             }
         }
 
-        //WRQ
-        if(keyboardThread.getWRQFile() != null) {
-            File file = keyboardThread.getWRQFile();
+        //DIRQ
+        if(keyboardThread.isDirq()) {
+            for(byte b : bytes_to_write) {
+                if(b == 0) {
+                    String file_name = new String(dirqStream.toByteArray(),0,count_dirq_bytes,StandardCharsets.UTF_8);
+                    System.out.println(file_name);
+                    //reset buffer
+                    dirqStream = new ByteArrayOutputStream();
+                    count_dirq_bytes = 0;
+                }
+                else {
+                    dirqStream.write(b);
+                    count_dirq_bytes++;
+                }
+            }
+            //TODO: take care of case where there are bytes left in the stream
+            keyboardThread.setDirq(false);
         }
         sendACK(block_number);
+    }
+
+
+
+    /*
+        Takes a list of byte arrays and concatenates them into a single long byte array, one after the other.
+     */
+    private byte[] concat_byte_arrays(byte[][] bytes) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        for(int i = 0; i < bytes.length; i++)
+            outputStream.write(bytes[i]);
+        return outputStream.toByteArray();
+    }
+
+    /**
+    Sends a single message
+    {@code @throws:} IOException
+     */
+    private synchronized void send(byte[] bytes) throws IOException {
+        out.write(bytes);
+        out.flush();
     }
 
     private void sendACK(short block_number) {
@@ -97,9 +137,8 @@ public class TftpClientProtocol {
         ack[2] = convShortTo2b(block_number)[0];
         ack[3] = convShortTo2b(block_number)[1];
         try{
-            out.write(ack);
-            out.flush();
-        }catch(Exception e){
+            send(ack);
+        }catch(IOException e){
             e.printStackTrace();
         }
     }
@@ -115,8 +154,6 @@ public class TftpClientProtocol {
         System.out.println("Error " + conv2bToShort(errorCode));
         notifyKeyboardThread(true);
     }
-
-
 
     private short conv2bToShort(byte[] b){
         // converting 2 byte array to a short
