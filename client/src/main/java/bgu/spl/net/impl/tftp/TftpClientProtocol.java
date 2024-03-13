@@ -37,16 +37,20 @@ public class TftpClientProtocol {
         }
     }
 
-    private void notifyKeyboardThread() {
+    private void notifyKeyboardThread(boolean error) {
         synchronized (keyboardThread) {
             keyboardThread.notify();
+            if(error)
+                keyboardThread.setError(1);
+            else
+                keyboardThread.setError(0);
         }
     }
 
     private void receiveACK(byte[] content) {
         short block_number = conv2bToShort(content);
         System.out.println("ACK " + block_number);
-        notifyKeyboardThread();
+        notifyKeyboardThread(false);
     }
 
     private final int MAX_DATA_SECTION_SIZE = 512;
@@ -108,7 +112,7 @@ public class TftpClientProtocol {
     private void error(byte[] content) {
         byte[] errorCode = new byte[]{content[0],content[1]};
         System.out.println("Error " + conv2bToShort(errorCode));
-        notifyKeyboardThread();
+        notifyKeyboardThread(true);
     }
 
 
