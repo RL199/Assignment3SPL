@@ -254,7 +254,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
         try{
             //create the file
-            fos = new FileOutputStream(wrqFile, true);
+            fos = new FileOutputStream(wrqFileName, true);
             wrqComplete = false;
             //send ack 0
             sendAck((short)0);
