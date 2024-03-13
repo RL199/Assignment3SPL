@@ -285,11 +285,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             //add the file to the Files directory
             try{
                 fos.close();
-                if(wrqFile.exists()){
-                    //send error 5
-                    sendError((byte)5, "");
-                    return;
-                }
                 //move the file to the Files directory
                 Path source = Paths.get(wrqFileName);
                 Path target = Paths.get("Files/" + wrqFileName);
