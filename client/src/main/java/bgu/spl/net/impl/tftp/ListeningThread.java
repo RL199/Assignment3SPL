@@ -23,7 +23,6 @@ public class ListeningThread extends Thread {
 
     @Override
     public void run() {
-
         try {
             int read;
             Socket socket;
