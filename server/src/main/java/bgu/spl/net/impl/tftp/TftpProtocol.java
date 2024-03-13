@@ -1,6 +1,7 @@
 package bgu.spl.net.impl.tftp;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.io.File;
 import java.io.FileInputStream;
@@ -16,7 +17,7 @@ import bgu.spl.net.api.BidiMessagingProtocol;
 import bgu.spl.net.srv.ConnectionHandler;
 import bgu.spl.net.srv.Connections;
 
-class holder{
+class holder {
     static ConcurrentHashMap<Integer, String> login_ids = new ConcurrentHashMap<>();
 }
 
@@ -123,6 +124,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                 brc[i+3] = fileName[i];
             }
             brc[brc.length-1] = 0;
+            System.out.println(Arrays.toString(brc));
             connections.broadcast(brc);
         }catch(Exception e){
             e.printStackTrace();
@@ -154,6 +156,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
      * @param errorMsg
      */
     private void sendError(byte errornNum, String errorMsg){
+
         byte[] error = new byte[4 + errorMsg.getBytes().length + 1];
         error[0] = 0;
         error[1] = 5;
@@ -185,12 +188,14 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             e.printStackTrace();
         }
         //check if the file exists in Files directory
-        File file = new File("server/Files/" + fileName);
+        //TODO: Perhaps change to server/Files
+        File file = new File("Files/" + fileName);
         if(file.exists()){
             //send the file to the client
             try{
                 FileInputStream fis = new FileInputStream(file);
                 rrqContent = new byte[(int)file.length()];
+                //TODO: synchronize?
                 fis.read(rrqContent);
                 fis.close();
                 indexRrq = 0;
@@ -240,7 +245,9 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }catch(Exception e){
             e.printStackTrace();
         }
-        wrqFile = new File("server/Files/" + wrqFileName);
+
+        //TODO: perhaps change to server/Files
+        wrqFile = new File("Files/" + wrqFileName);
         if(wrqFile.exists()){
             //send error 5
             sendError((byte)5, "");
@@ -266,6 +273,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             return;
         }
         try{
+            //TODO: synchronize?
             fos.write(message, 6, message.length-6);
             wrqComplete = message.length < 518;
             //send ack with the block number
@@ -285,7 +293,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                 }
                 //move the file to the Files directory
                 Path source = Paths.get(wrqFileName);
-                Path target = Paths.get("server/Files/" + wrqFileName);
+                //TODO: perhaps change to server/Files
+                Path target = Paths.get("Files/" + wrqFileName);
                 Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
             }catch(Exception e){
                 e.printStackTrace();
@@ -314,7 +323,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
         System.out.println("Error " + code + " " + errorMsg);
     }
-//FIXME: dirq
+
     private void dirq(byte[] message){
         //directory listing request
         if(!holder.login_ids.containsKey(connectionId)){
@@ -322,7 +331,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             sendError((byte)6, "");
             return;
         }
-        File folder = new File("server/Files/");
+        //TODO: perhaps change to server/Files
+        File folder = new File("Files/");
         File[] listOfFiles = folder.listFiles();
         //send the names of the files divided by 0 in the directory in DATA packets
         ArrayList<byte[]> fileNamesarrays = new ArrayList<>();
@@ -353,6 +363,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     private void logrq(byte[] message){
         //login request
         //check if the user is already logged in
+        System.out.println("message: " + Arrays.toString(message));
         if(holder.login_ids.containsKey(connectionId)){
             //send error 7
             sendError((byte)7, "");
@@ -388,11 +399,13 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         try{
             //get the file name using UTF-8
             fileName = new String(message, 2, message.length-3, StandardCharsets.UTF_8);
+            System.out.println("message: " + Arrays.toString(message));
+            System.out.println("Filename: " + fileName);
         }catch(Exception e){
             //error
         }
         //check if the file exists in Files directory
-        File file = new File("server/Files/" + fileName);
+        File file = new File("Files/" + fileName);
         if(file.exists()){
             file.delete();
             //send ack 0
