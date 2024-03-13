@@ -5,7 +5,6 @@ import java.util.Arrays;
 
 
 public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
-    //TODO: Implement here the TFTP encoder and decoder
 
     private byte[] bytes = new byte[1 << 10];
     private int len = 0;
