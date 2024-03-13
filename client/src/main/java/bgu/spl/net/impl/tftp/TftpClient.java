@@ -40,8 +40,14 @@ public class TftpClient {
             client.keyboardThread.start();
 
 
-//            client.listeningThread.join();
-//            client.keyboardThread.join();
+            client.listeningThread.join();
+            client.keyboardThread.join();
+
+
+
+
+
+
             /*out.println("sending message to server");
             out.write(args[1]);
             out.newLine();
