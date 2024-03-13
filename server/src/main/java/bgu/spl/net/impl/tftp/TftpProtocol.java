@@ -188,15 +188,15 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             e.printStackTrace();
         }
         //check if the file exists in Files directory
-        //TODO: Perhaps change to server/Files
         File file = new File("Files/" + fileName);
         if(file.exists()){
             //send the file to the client
             try{
                 FileInputStream fis = new FileInputStream(file);
                 rrqContent = new byte[(int)file.length()];
-                //TODO: synchronize?
-                fis.read(rrqContent);
+                synchronized(file){
+                    fis.read(rrqContent);
+                }
                 fis.close();
                 indexRrq = 0;
                 sendRrqData((short)1);
@@ -246,7 +246,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             e.printStackTrace();
         }
 
-        //TODO: perhaps change to server/Files
         wrqFile = new File("Files/" + wrqFileName);
         if(wrqFile.exists()){
             //send error 5
@@ -255,7 +254,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
         try{
             //create the file
-            fos = new FileOutputStream(wrqFileName);
+            fos = new FileOutputStream(wrqFile, true);
             wrqComplete = false;
             //send ack 0
             sendAck((short)0);
@@ -264,7 +263,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
     }
 
-//TODO: check where synchronized is needed.
     private void data(byte[] message){
         //data
         if(!holder.login_ids.containsKey(connectionId)){
@@ -273,8 +271,9 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             return;
         }
         try{
-            //TODO: synchronize?
-            fos.write(message, 6, message.length-6);
+            synchronized(wrqFile){
+                fos.write(message, 6, message.length-6);
+            }
             wrqComplete = message.length < 518;
             //send ack with the block number
             short blockNum = conv2bToShort(new byte[]{message[4], message[5]});
@@ -293,7 +292,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                 }
                 //move the file to the Files directory
                 Path source = Paths.get(wrqFileName);
-                //TODO: perhaps change to server/Files
                 Path target = Paths.get("Files/" + wrqFileName);
                 Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
             }catch(Exception e){
@@ -331,7 +329,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             sendError((byte)6, "");
             return;
         }
-        //TODO: perhaps change to server/Files
         File folder = new File("Files/");
         File[] listOfFiles = folder.listFiles();
         //send the names of the files divided by 0 in the directory in DATA packets
@@ -498,7 +495,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     @Override
     public boolean shouldTerminate() {
         //true if the connection should be terminated
-        //TODO: check where shouldTerminate is needed to be called
         if(shouldTerminate){
             holder.login_ids.remove(connectionId);
             this.connections.disconnect(connectionId);

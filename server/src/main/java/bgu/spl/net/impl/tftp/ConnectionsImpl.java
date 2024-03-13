@@ -9,7 +9,6 @@ it to implement the interface functions. Notice that given a Connections impleme
 should run. This means that you keep your implementation of Connections on T.
  */
 
- //TODO: check if connectionId is needed to change to string username
 public class ConnectionsImpl<T> implements Connections<T> {
 
     //list of the new ConnectionHandler interface for each active client
@@ -39,7 +38,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     //broadcast the message to all active clients.
     public void broadcast(T msg){
-        //TODO: synchronize?
         for(ConnectionHandler<T> handler : connectionHandlers.values()){
             handler.send(msg);
         }
