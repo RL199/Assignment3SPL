@@ -1,9 +1,6 @@
 package bgu.spl.net.impl.tftp;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Arrays;
@@ -17,12 +14,11 @@ public class KeyboardThread extends Thread {
     private TftpEncoderDecoder encdec;
     private BufferedOutputStream out;
     private File rrqFile;
-//    private File wrqFile;
     private int error = -1;
     private boolean terminate;
     private final TftpClient client;
 
-    private volatile short ack_block_number = 0; //FIXME: volatile?
+    private volatile short ack_block_number = 0;
 
     public void setACKBlockNumber(short block_number) {
         this.ack_block_number = block_number;
@@ -111,6 +107,9 @@ public class KeyboardThread extends Thread {
 
     public void setRRQFileNull() {
         this.rrqFile = null;
+        synchronized (this) {
+            this.notifyAll();
+        }
     }
 
     public boolean isDirq() {
@@ -137,14 +136,6 @@ public class KeyboardThread extends Thread {
 //        }
     }
 
-    //    public File getWRQFile() {
-//        return this.wrqFile;
-//    }
-//
-//    public void setWRQFileNull() {
-//        this.wrqFile = null;
-//    }
-
     private void command_rrq(String filename) {
 
         try {
@@ -155,9 +146,12 @@ public class KeyboardThread extends Thread {
                 rrqFile = file;
                 while(rrqFile != null) {
                     synchronized (this) {
-                        System.out.println("Waiting");
+//                        System.out.println("Waiting");
                         this.wait();
                     }
+
+                }
+                synchronized (this) {
                     this.notifyAll();
                 }
 //                rrqFile = null;
@@ -179,11 +173,10 @@ public class KeyboardThread extends Thread {
             //file exists
             //send a WRQ packet
             sendMessage(new byte[]{0,2},filename);
-//            wrqFile = file;
             //wait for ACK or ERROR packet to be received in the Listening thread
             try {
                 synchronized (this) {
-                    System.out.println("Waiting WRQ");
+//                    System.out.println("Waiting WRQ");
                     this.wait();
                 }
                 if(error == 0) { //no error
@@ -218,7 +211,7 @@ public class KeyboardThread extends Thread {
 
             while (bytes_to_write > 0) {
                 int bytes_written = 0;
-                System.out.println(bytes_to_write);
+//                System.out.println(bytes_to_write);
                 synchronized (keyboardThread) {
                     bytes_written = sendSingleDataMessage(++keyboardThread.ack_block_number);
                     keyboardThread.wait();
@@ -227,6 +220,9 @@ public class KeyboardThread extends Thread {
                 if(error != 0)
                     break;
             }
+
+            //completed the transfer
+            System.out.println("WRQ " + file.getName() + " complete");
         }
 
         /*
@@ -238,12 +234,12 @@ public class KeyboardThread extends Thread {
             message = new byte[2 + 2 + 2 + packet_size];
             byte[] opcode_bytes = {0, 3};
             byte[] packet_size_bytes = convShortTo2b((short) packet_size);
-            System.out.println("Block number: " + block_number);
+//            System.out.println("Block number: " + block_number);
             byte[] block_number_bytes = convShortTo2b(block_number);
             byte[] data = Arrays.copyOfRange(file_data, current_pos, current_pos + packet_size);
             message = concat_byte_arrays(new byte[][]{opcode_bytes, packet_size_bytes, block_number_bytes, data});
             send(message);
-            System.out.println("Sending data: " + Arrays.toString(message));
+//            System.out.println("Sending data: " + Arrays.toString(message));
             current_pos += packet_size;
 
             return packet_size;
