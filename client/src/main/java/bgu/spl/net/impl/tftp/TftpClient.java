@@ -2,10 +2,6 @@ package bgu.spl.net.impl.tftp;
 
 import java.io.*;
 import java.net.Socket;
-import java.net.UnknownHostException;
-import java.util.Arrays;
-
-import static java.lang.System.out;
 
 public class TftpClient {
     //TODO: implement the main logic of the client, when using a thread per client the main logic goes here
@@ -24,10 +20,7 @@ public class TftpClient {
         String host = args.length > 0 ? args[0] : "127.0.0.1";
         int port = args.length > 1 ? Integer.parseInt(args[1]) : 7777;
         TftpClient client = new TftpClient();
-        /*
-            Keyboard thread - reads commands from the keyboard and sends packets to the server defined by the command.
-            Listening thread - reads packets from the socket and displays messages or sends packets in return.
-        */
+
         try {
             client.socket = new Socket(host, port);
             System.out.println("Connected to the server!");
@@ -40,31 +33,12 @@ public class TftpClient {
             client.listeningThread.start();
             client.keyboardThread.start();
 
-
             client.listeningThread.join();
             client.keyboardThread.join();
 
-
-
-
-
-
-            /*out.println("sending message to server");
-            out.write(args[1]);
-            out.newLine();
-            out.flush();
-
-            out.println("awaiting response");
-            String line = in.readLine();
-            out.println("message from server: " + line);*/
-//            if(client.disconnected)
-//                socket.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-
-
     }
 
     public boolean shouldTerminate() {
@@ -75,7 +49,6 @@ public class TftpClient {
         if(socket == null) return;
         try {
             terminate = true;
-//            out.println(terminate);
             socket.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
