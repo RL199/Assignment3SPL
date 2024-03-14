@@ -34,7 +34,7 @@ public class ListeningThread extends Thread {
                 }
                 byte[] nextMessage = encdec.decodeNextByte((byte) read);
                 if (nextMessage != null) {
-                    System.out.println("Message from server: " + Arrays.toString(nextMessage));
+//                    System.out.println("Message from server: " + Arrays.toString(nextMessage));
                     protocol.process(nextMessage);
                 }
             }
