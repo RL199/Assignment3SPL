@@ -22,6 +22,7 @@ public class KeyboardThread extends Thread {
 
     public void setACKBlockNumber(short block_number) {
         this.ack_block_number = block_number;
+        error = 0;
     }
 
     public void setError(int error) {
@@ -46,13 +47,13 @@ public class KeyboardThread extends Thread {
                 command_logrq(restOfLine);
                 break;
             case "DELRQ":
-                command_delrq(command_arr[1]);
+                command_delrq(restOfLine);
                 break;
             case "RRQ":
-                command_rrq(command_arr[1]);
+                command_rrq(restOfLine);
                 break;
             case "WRQ":
-                command_wrq(command_arr[1]);
+                command_wrq(restOfLine);
                 break;
             case "DIRQ":
                 command_dirq();
@@ -105,12 +106,14 @@ public class KeyboardThread extends Thread {
         return this.rrqFile;
     }
 
-    public void setRRQFileNull() {
+    public void onRRQFinish() {
         this.rrqFile = null;
         synchronized (this) {
             this.notifyAll();
         }
     }
+
+    private boolean dirq = false;
 
     public boolean isDirq() {
         return dirq;
@@ -120,47 +123,42 @@ public class KeyboardThread extends Thread {
         this.dirq = dirq;
     }
 
-    private boolean dirq = false;
     private void command_dirq() {
         send(new byte[]{0,6});
-//        try {
-//            synchronized (this) {
-//                System.out.println("waiting");
-//                this.wait();
-//            }
-//        } catch (InterruptedException e) {
-//            throw new RuntimeException(e);
-//        }
+        try {
+            synchronized (this) {
+                this.wait();
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
 //        if(error == 0) {//no error
             dirq = true;
 //        }
     }
 
     private void command_rrq(String filename) {
-
         try {
             File file = new File(filename);
-            if(file.createNewFile()) {
-                //file created
-                sendMessage(new byte[]{0,1},filename);
+            if(!file.isFile()) {
+                // the file does not exist
+                file.createNewFile();
+//                error = -1;
                 rrqFile = file;
-                while(rrqFile != null) {
-                    synchronized (this) {
-//                        System.out.println("Waiting");
-                        this.wait();
-                    }
-
-                }
+                sendMessage(new byte[]{0,1},filename);
                 synchronized (this) {
-                    this.notifyAll();
+                    this.wait();
                 }
-//                rrqFile = null;
+//
+//                synchronized (this) {
+//                    this.notifyAll();
+//                }
+
             }
-            else {
-                //file already exists
+            else { // the file exists
                 System.out.println("File already exists");
             }
-        } catch (IOException | InterruptedException e) {
+        } catch(Exception e) {
             throw new RuntimeException(e);
         }
 
@@ -248,6 +246,7 @@ public class KeyboardThread extends Thread {
 
 
     private void command_disc() {
+
         send(new byte[]{0,10});
         synchronized (this) {
             try {
@@ -256,10 +255,9 @@ public class KeyboardThread extends Thread {
                 e.printStackTrace();
             }
         }
-        if(error == 1 || error == 0) {
-            //TODO: check if there's an error what to do
-            client.disconnect();
-        }
+
+        client.disconnect();
+
 
         error = -1;
     }
@@ -285,47 +283,6 @@ public class KeyboardThread extends Thread {
             e.printStackTrace();
         }
     }
-
-//    private void sendData(File file) throws IOException {
-//        final int MAX_DATA_SECTION_SIZE = 512;
-//        byte[] file_data = Files.readAllBytes(file.toPath());
-//
-//        //calculate how many packets to send
-//        //Each block has MAX_DATA_SECTION_SIZE bytes
-//        int     total_bytes = file_data.length,
-//                y = MAX_DATA_SECTION_SIZE;
-//        short total_packets = (short) (total_bytes/y);
-//        /*
-//         * Add Remainders
-//         * for ex. 1025 bytes should send 3
-//         * 1024 bytes should also send 3
-//         * 1023 should send 2
-//         */
-//        total_packets += (short) (((total_bytes-y) % y >= 0) ? 1 : 0);
-//
-//        int bytes_written = 0;
-//        //A list of data arrays, each block is in a separate array
-//        byte[][] file_data_chunks = new byte[total_packets][];
-//        for(int i = 0; i < total_packets; i++) {
-//            int packet_size = Math.min(total_bytes - bytes_written,MAX_DATA_SECTION_SIZE);
-//            file_data_chunks[i] = new byte[packet_size];
-//            for(int j = 0; j < MAX_DATA_SECTION_SIZE; j++) {
-//                file_data_chunks[i][j] = file_data[i * MAX_DATA_SECTION_SIZE + j];
-//            }
-//        }
-//
-//        byte[] message; //a single data packet
-//        for(int i = 0; i < total_packets; i++) {
-//            int packet_size = file_data_chunks[i].length;
-//            message = new byte[2+2+2+packet_size];
-//            byte[] opcode_bytes = {0,3};
-//            byte[] packet_size_bytes = convShortTo2b((short) packet_size);
-//            byte[] block_number_bytes = convShortTo2b((short) i);
-//            message = concat_byte_arrays(new byte[][]{opcode_bytes,packet_size_bytes,block_number_bytes,file_data_chunks[i]});
-//
-//            send(message);
-//        }
-//    }
 
     private byte[] convShortTo2b(short num){
         // converting short to 2 byte array
