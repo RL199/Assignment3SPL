@@ -16,13 +16,13 @@ public class TftpClient {
     Socket socket;
     private boolean terminate = false;
     public static void main(String[] args) {
-        if (args.length < 2) {
-            out.println("you must supply two arguments: host, port");
-            System.exit(1);
-        }
+        // if (args.length < 2) {
+        //     out.println("you must supply two arguments: host, port");
+        //     System.exit(1);
+        // }
 
-        String host = args[0];
-        int port = Integer.parseInt(args[1]);
+        String host = args.length > 0 ? args[0] : "127.0.0.1";
+        int port = args.length > 1 ? Integer.parseInt(args[1]) : 7777;
         TftpClient client = new TftpClient();
         /*
             Keyboard thread - reads commands from the keyboard and sends packets to the server defined by the command.
@@ -30,6 +30,7 @@ public class TftpClient {
         */
         try {
             client.socket = new Socket(host, port);
+            System.out.println("Connected to the server!");
             BufferedInputStream in = new BufferedInputStream(client.socket.getInputStream());
             BufferedOutputStream out = new BufferedOutputStream(client.socket.getOutputStream());
 
