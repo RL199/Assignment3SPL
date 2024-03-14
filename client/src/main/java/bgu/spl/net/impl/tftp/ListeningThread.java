@@ -4,6 +4,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Arrays;
 
 public class ListeningThread extends Thread {
@@ -38,7 +39,11 @@ public class ListeningThread extends Thread {
                 }
             }
 
-        } catch (IOException e) {
+        }catch (SocketException e) {
+            if(!shouldTerminate())
+                e.printStackTrace();
+        }
+        catch (IOException e) {
             e.printStackTrace();
         }
 

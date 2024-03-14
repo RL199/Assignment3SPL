@@ -156,7 +156,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
      * @param errorMsg
      */
     private void sendError(byte errornNum, String errorMsg){
-
         byte[] error = new byte[4 + errorMsg.getBytes().length + 1];
         error[0] = 0;
         error[1] = 5;
@@ -173,6 +172,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
     }
 
+    /**
+     * rrq
+     * read request message from the client
+     * @param message
+     */
     private void rrq(byte[] message){
         //read request
         if(!holder.login_ids.containsKey(connectionId)){
@@ -210,8 +214,12 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
     }
 
+    /**
+     * ack
+     * ack message from the client
+     * @param message
+     */
     private void ack(byte[] message){
-        //ack
         if(!holder.login_ids.containsKey(connectionId)){
             //send error 6
             sendError((byte)6, "");
@@ -230,14 +238,17 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
     }
 
+    /**
+     * wrq
+     * write request message from the client
+     * @param message
+     */
     private void wrq(byte[] message){
-        //write request
         if(!holder.login_ids.containsKey(connectionId)){
             //send error 6
             sendError((byte)6, "");
             return;
         }
-        //check if the file already exists in Files directory
         wrqFileName = "";
         try{
             //get the file name using UTF-8
@@ -245,7 +256,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }catch(Exception e){
             e.printStackTrace();
         }
-
+        //create the file
         wrqFile = new File("Files/" + wrqFileName);
         if(wrqFile.exists()){
             //send error 5
@@ -254,7 +265,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
         try{
             //create the file
-            fos = new FileOutputStream(wrqFile, true);
+            fos = new FileOutputStream(wrqFileName, true);
             wrqComplete = false;
             //send ack 0
             sendAck((short)0);
@@ -263,6 +274,12 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
     }
 
+    /**
+     * data
+     * data message from the client
+     * write the data to the file
+     * @param message
+     */
     private void data(byte[] message){
         //data
         if(!holder.login_ids.containsKey(connectionId)){
@@ -285,11 +302,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             //add the file to the Files directory
             try{
                 fos.close();
-                if(wrqFile.exists()){
-                    //send error 5
-                    sendError((byte)5, "");
-                    return;
-                }
                 //move the file to the Files directory
                 Path source = Paths.get(wrqFileName);
                 Path target = Paths.get("Files/" + wrqFileName);
@@ -302,7 +314,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
     }
 
-
+    /**
+     * error
+     * error message from the client
+     * @param message
+     */
     private void error(byte[] message){
         if(!holder.login_ids.containsKey(connectionId)){
             //send error 6
@@ -322,6 +338,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         System.out.println("Error " + code + " " + errorMsg);
     }
 
+    /**
+     * dirq
+     * directory listing request message from the client
+     * @param message
+     */
     private void dirq(byte[] message){
         //directory listing request
         if(!holder.login_ids.containsKey(connectionId)){
@@ -357,6 +378,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         sendDirqData((short)1);
     }
 
+    /**
+     * logrq
+     * login request message from the client
+     * @param message
+     */
     private void logrq(byte[] message){
         //login request
         //check if the user is already logged in
@@ -385,6 +411,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     }
 
 //TODO:if more than one error applies, select the lower error code.
+    /**
+     * delrq
+     * delete request message from the client
+     * @param message
+     */
     private void delrq(byte[] message){
         //delete request
         if(!holder.login_ids.containsKey(connectionId)){
@@ -416,12 +447,22 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         }
     }
 
+    /**
+     * bcst
+     * broadcast file deleted or added message from the client
+     * @param message
+     */
     private void bcst(byte[] message){
         //broadcast file deleted or added. the server not suppose to get this opcode
         //send error 4
         sendError((byte)4, "");
     }
 
+    /**
+     * disc
+     * logout request message from the client
+     * @param message
+     */
     private void disc(byte[] message){
         //logout request
         if(holder.login_ids.containsKey(connectionId)){
@@ -502,6 +543,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         return shouldTerminate;
     }
 
+    /**
+    * convShortTo2b
+    * converting short to 2 byte array
+    * @param num
+    */
     private byte[] convShortTo2b(short num){
         // converting short to 2 byte array
         byte[] a_bytes = new byte[2];
@@ -510,6 +556,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         return a_bytes;
     }
 
+    /**
+     * conv2bToShort
+     * converting 2 byte array to a short
+     * @param b
+     */
     private short conv2bToShort(byte[] b){
     // converting 2 byte array to a short
         short num = (short) ( (((short) (b[0] & 0xff)) << 8) | (short) (b[1]) & 0x00ff);

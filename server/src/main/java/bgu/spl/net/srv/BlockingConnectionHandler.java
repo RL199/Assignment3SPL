@@ -7,6 +7,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketException;
 
 public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler<T> {
     //old
@@ -40,7 +41,10 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
                     protocol.process(nextMessage);
                 }
             }
-        } catch (IOException ex) {
+        }catch (SocketException e) {
+            System.out.println("Client " + sock.getInetAddress() + " disconnected without DISC command");
+        }
+        catch (IOException ex) {
             ex.printStackTrace();
         }
     }
@@ -58,7 +62,10 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
                 out.write(encdec.encode(msg));
                 out.flush();
             }
-        } catch (IOException e) {
+        }catch(SocketException ex){
+            //illegal disconnection before
+        }
+        catch (IOException e) {
             e.printStackTrace();
         }
     }
