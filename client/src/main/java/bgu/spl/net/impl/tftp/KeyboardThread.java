@@ -142,13 +142,15 @@ public class KeyboardThread extends Thread {
             File file = new File(filename);
             if(!file.isFile()) {
                 // the file does not exist
-                file.createNewFile();
-//                error = -1;
+
+                error = -1;
                 rrqFile = file;
                 sendMessage(new byte[]{0,1},filename);
                 synchronized (this) {
                     this.wait();
                 }
+                if(error == 0)
+                    file.createNewFile();
 //
 //                synchronized (this) {
 //                    this.notifyAll();
