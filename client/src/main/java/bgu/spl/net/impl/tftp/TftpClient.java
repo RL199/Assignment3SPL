@@ -4,7 +4,7 @@ import java.io.*;
 import java.net.Socket;
 
 public class TftpClient {
-    //TODO: implement the main logic of the client, when using a thread per client the main logic goes here
+
     KeyboardThread keyboardThread;
     ListeningThread listeningThread;
     TftpEncoderDecoder encdec = new TftpEncoderDecoder();

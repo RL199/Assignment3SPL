@@ -124,7 +124,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                 brc[i+3] = fileName[i];
             }
             brc[brc.length-1] = 0;
-            System.out.println(Arrays.toString(brc));
+//            System.out.println(Arrays.toString(brc));
             connections.broadcast(brc);
         }catch(Exception e){
             e.printStackTrace();
@@ -394,7 +394,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     private void logrq(byte[] message){
         //login request
         //check if the user is already logged in
-        System.out.println("message: " + Arrays.toString(message));
+//        System.out.println("message: " + Arrays.toString(message));
         if(holder.login_ids.containsKey(connectionId)){
             //send error 7
             sendError((byte)7, "");
@@ -435,7 +435,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         try{
             //get the file name using UTF-8
             fileName = new String(message, 2, message.length-3, StandardCharsets.UTF_8);
-            System.out.println("message: " + Arrays.toString(message));
+//            System.out.println("message: " + Arrays.toString(message));
             System.out.println("Filename: " + fileName);
         }catch(Exception e){
             //error

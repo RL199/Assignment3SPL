@@ -2,11 +2,7 @@ package bgu.spl.net.impl.tftp;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
 
 public class TftpClientProtocol {
     private final KeyboardThread keyboardThread;
@@ -65,6 +61,7 @@ public class TftpClientProtocol {
         When received a DATA packet - save the data to a file or a buffer depending on if we are in RRQ Command or DIRQ Command and send an ACK packet in return with the corresponding block number written in the DATA packet.
          */
         short packet_size = conv2bToShort(new byte[]{content[0],content[1]});
+        boolean is_last_packet = packet_size < MAX_DATA_SECTION_SIZE;
         short block_number = conv2bToShort(new byte[]{content[2],content[3]});
 //        System.out.println("Packet size: " + packet_size);
 //        System.out.println("Block number: " + block_number);
@@ -82,14 +79,16 @@ public class TftpClientProtocol {
             }
 
             //Once transfer is complete
-            if(content.length < MAX_DATA_SECTION_SIZE - 2) { //-2 for opcode
+            if(is_last_packet) {
                 System.out.println("RRQ " + file.getName() + " complete");
-                keyboardThread.setRRQFileNull();
+                keyboardThread.onRRQFinish();
             }
+
+
         }
 
         //DIRQ
-        if(keyboardThread.isDirq()) {
+        else {
             for(byte b : bytes_to_write) {
                 if(b == 0) {
                     String file_name = new String(dirqStream.toByteArray(),0,count_dirq_bytes,StandardCharsets.UTF_8);
@@ -104,7 +103,11 @@ public class TftpClientProtocol {
                 }
             }
             //TODO: take care of case where there are bytes left in the stream
-            keyboardThread.setDirq(false);
+            if(is_last_packet) {
+                synchronized (keyboardThread) {
+                    keyboardThread.notifyAll();
+                }
+            }
         }
         sendACK(block_number);
     }
@@ -150,6 +153,9 @@ public class TftpClientProtocol {
     private void error(byte[] content) {
         byte[] errorCode = new byte[]{content[0],content[1]};
         System.out.println("Error " + conv2bToShort(errorCode));
+        if(keyboardThread.getRRQFile() != null) {
+            keyboardThread.onRRQFinish();
+        }
         notifyKeyboardThread(true);
     }
 
