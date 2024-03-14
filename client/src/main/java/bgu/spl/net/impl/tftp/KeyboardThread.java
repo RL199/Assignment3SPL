@@ -220,7 +220,7 @@ public class KeyboardThread extends Thread {
                 int bytes_written = 0;
                 System.out.println(bytes_to_write);
                 synchronized (keyboardThread) {
-                    bytes_written = sendSingleDataMessage(keyboardThread.ack_block_number++);
+                    bytes_written = sendSingleDataMessage(++keyboardThread.ack_block_number);
                     keyboardThread.wait();
                 }
                 bytes_to_write -= bytes_written;
@@ -238,6 +238,7 @@ public class KeyboardThread extends Thread {
             message = new byte[2 + 2 + 2 + packet_size];
             byte[] opcode_bytes = {0, 3};
             byte[] packet_size_bytes = convShortTo2b((short) packet_size);
+            System.out.println("Block number: " + block_number);
             byte[] block_number_bytes = convShortTo2b(block_number);
             byte[] data = Arrays.copyOfRange(file_data, current_pos, current_pos + packet_size);
             message = concat_byte_arrays(new byte[][]{opcode_bytes, packet_size_bytes, block_number_bytes, data});
