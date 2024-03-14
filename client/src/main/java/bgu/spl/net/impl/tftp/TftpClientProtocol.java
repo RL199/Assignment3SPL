@@ -40,7 +40,7 @@ public class TftpClientProtocol {
 
     private void notifyKeyboardThread(boolean error) {
         synchronized (keyboardThread) {
-            System.out.println("released");
+//            System.out.println("released");
             keyboardThread.notifyAll();
             if(error)
                 keyboardThread.setError(1);
@@ -66,8 +66,8 @@ public class TftpClientProtocol {
          */
         short packet_size = conv2bToShort(new byte[]{content[0],content[1]});
         short block_number = conv2bToShort(new byte[]{content[2],content[3]});
-        System.out.println("Packet size: " + packet_size);
-        System.out.println("Block number: " + block_number);
+//        System.out.println("Packet size: " + packet_size);
+//        System.out.println("Block number: " + block_number);
 
         byte[] bytes_to_write = Arrays.copyOfRange(content,4,content.length); //excluding OP_CODE at start, remove only packet size and block number
 
@@ -109,8 +109,6 @@ public class TftpClientProtocol {
         sendACK(block_number);
     }
 
-
-
     /*
         Takes a list of byte arrays and concatenates them into a single long byte array, one after the other.
      */
@@ -145,7 +143,7 @@ public class TftpClientProtocol {
 
     private void bcast(byte[] content) {
         String del_add = (content[0] == 0) ? "del" : "add";
-        String file_name = new String(content,1,content.length-1, StandardCharsets.UTF_8);
+        String file_name = new String(content,1,content.length-2, StandardCharsets.UTF_8);
         System.out.println("BCAST " + del_add + " " + file_name);
     }
 
