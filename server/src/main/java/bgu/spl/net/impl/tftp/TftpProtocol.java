@@ -362,6 +362,14 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                 lengthCounter += fileName.length + 1;
             }
         }
+
+        //Sort the file names by ascending lexicographic order
+        fileNamesarrays.sort((byte[] b1, byte[] b2) -> {
+            String s1 = new String(b1,0,b1.length,StandardCharsets.UTF_8);
+            String s2 = new String(b2,0,b2.length,StandardCharsets.UTF_8);
+            return s1.compareTo(s2);
+        });
+
         //join all the file names data
         dirqContent = new byte[lengthCounter];
         int index = 0;
